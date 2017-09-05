@@ -1,0 +1,93 @@
+第一步>>建立一个web工程,导入dbcp依赖jar包并置于WebRoot>WEB-INF>lib路径下
+      
+第二步>>在项目路径WebRoot→META-INF下编写context.xml配置文件,配置信息如下:
+<?xml version='1.0' encoding='utf-8'?>
+<Context>
+	<Resource name="mysql" auth="Container" type="javax.sql.DataSource"
+               maxActive="100" maxIdle="30"  maxWait="10000"
+               username="用户名" password="密码" driverClassName="com.mysql.jdbc.Driver"
+               url="jdbc:mysql://localhost:3306/数据库名"/>
+</Context>
+
+第三步>>编写DBHelper类
+>>DBHelper.java
+package cn.zkingsoft.db;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.sql.DataSource;
+/**
+ * JNDI:java通过名字找资源的技术
+ * 连接池方式(dbcp,c3p0,xpool)
+ * @author Administrator
+ *
+ */
+public class DBHelper {
+	//数据源（连接池）
+	private static DataSource ds = null;
+	
+	static{
+		try {
+			Context context = new InitialContext();
+			ds = (DataSource)context.lookup("java:comp/env/mysql");//注意此处!
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static Connection getConnection(){
+		Connection conn = null;
+		try {
+			conn = ds.getConnection();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return conn;
+	}
+	
+	public static void closeConnection(Connection conn){
+		try {
+			if(conn!=null&&!conn.isClosed()){
+				conn.close();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+第四步>>在web工程下新建一个Test.jsp页面测试连接<由于建立的是web工程所以测试必须在jsp或者Servlet页面上进行>,如下:
+
+<%@page import="com.imooc.db.DBHelper"%>
+<%@ page language="java" import="java.util.*" pageEncoding="utf-8"%>
+<%
+String path = request.getContextPath();
+String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";
+%>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <base href="<%=basePath%>">
+    
+    <title>My JSP 'Test.jsp' starting page</title>
+    
+	<meta http-equiv="pragma" content="no-cache">
+	<meta http-equiv="cache-control" content="no-cache">
+	<meta http-equiv="expires" content="0">    
+	<meta http-equiv="keywords" content="keyword1,keyword2,keyword3">
+	<meta http-equiv="description" content="This is my page">
+	<!--
+	<link rel="stylesheet" type="text/css" href="styles.css">
+	-->
+  </head>
+  <body>
+   <!--测试连接  -->
+    <%=DBHelper.getConnection() %>
+  </body>
+</html>
+
+第五步>>启动服务器并访问Test.jsp页面.
+
