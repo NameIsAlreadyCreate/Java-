@@ -1,0 +1,408 @@
+第一步>>数据库建立image表,准备数据库jar包,帮助类(DBHelper),c3p0连接池,image字段如下:
+
+CREATE TABLE `image` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `data` longblob NOT NULL,
+  `path` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8;
+
+
+
+第二步>>新建Image实体类,如下:
+
+package com.imooc.pojo;
+
+import java.io.Serializable;
+
+public class Image implements Serializable {
+	private int id;
+	private String name;
+	private byte[] data;
+	private String path;
+
+	public Image() {
+
+	}
+
+	public Image(int id, String name, byte[] data) {
+
+		this.id = id;
+		this.name = name;
+		this.data = data;
+	}
+	
+
+	public Image(int id,String name, byte[] data, String path) {
+		this.id = id;
+		this.name = name;
+		this.data = data;
+		this.path = path;
+	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public byte[] getData() {
+		return data;
+	}
+
+	public void setData(byte[] data) {
+		this.data = data;
+	}
+
+	public String getPath() {
+		return path;
+	}
+
+	public void setPath(String path) {
+		this.path = path;
+	}
+
+}
+
+第三步>>编写ImageDao以及实现类,ImageDao如下:
+package com.imooc.dao;
+
+import java.util.List;
+
+import com.imooc.pojo.Image;
+
+public interface ImageDao {
+public boolean add(Image image);
+	
+	public boolean delete(int id);
+	
+	public boolean modification(Image image);
+	
+	public Image findById(int id);
+	
+	public List<Image> findAll();
+}
+
+第四步>>引入JQuery3.2(需支持FormData),编写ImageUpload.jsp,如下:
+<%@page import="com.imooc.db.DBHelper"%>
+<%@ page language="java" import="java.util.*" pageEncoding="utf-8"%>
+<%
+String path = request.getContextPath();
+String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";
+%>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <base href="<%=basePath%>">
+    
+    <title>My JSP 'Test.jsp' starting page</title>
+    
+	<meta http-equiv="pragma" content="no-cache">
+	<meta http-equiv="cache-control" content="no-cache">
+	<meta http-equiv="expires" content="0">    
+	<meta http-equiv="keywords" content="keyword1,keyword2,keyword3">
+	<meta http-equiv="description" content="This is my page">
+	<!--引入JQuery  -->
+	<script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>
+	<script type="text/javascript">
+		function upload(){
+			
+			/* var xmlHttp;
+			var formData=new FormData();
+			formData.append("myFile",document.getElementById("myFile").files[0]);
+			formData.append("imgName",document.getElementById("imgName").value);
+			if(window.XMLHttpReuqest){
+				//坑!!!
+				xmlHttp=new  XMLHttpRequest();
+			}else{
+				xmlHttp=new ActiveXObject("Microsoft.XMLHTTP");//浏览器兼容问题
+			}
+			xmlHttp.open("POST", "ImageUploadServlet", true);
+			xmlHttp.setRequestHeader("Content-Type","multipart/form-data");
+			xmlHttp.send(formData);
+			xmlHttp.onreadystatechange=function(){
+				if(xmlHttp.status==200&&xmlHttp.readyState==4){
+					var responseText=xmlHttp.responseText.replace(/^\s* /, "");
+					if(responseText=="true"){
+						alert("上传成功!");
+					}else{
+						alert("上传失败!");
+					}
+				}
+			} */
+			var formData=new FormData();
+			//获取上传组件中的第一个文件封装到FormData中
+			formData.append("myFile",document.getElementById("myFile").files[0]);
+			//获取表单中输入框的文件名
+			formData.append("imgName",document.getElementById("imgName").value);
+			$.ajax({
+				url:"ImageUploadServlet",
+				type:"POST",
+				data:formData,
+				//必须false才会自动加上正确的Content-Type
+				contentType:false,
+				// 必须false才会避开jQuery对 formdata 的默认处理, XMLHttpRequest会对 formdata 进行正确的处理
+				processData:false,
+				success:function (returnText){
+					//对响应文本进行去空格处理
+					if($.trim(returnText)=="true"){
+						//alert("上传成功!");
+						$("#myFile").after("<span style='color:green;font-size:30px;'>上传成功!</span>");
+					}else{
+						//alert("上传失败!");
+						$("#myFile").after("<span style='color:red;font-size:30px;'>上传失败!</span>");
+
+					}
+				}
+			});
+			
+		}
+	</script>
+  </head>
+  <body>
+ 		<center>
+ 			<form action="ImageUploadServlet" method="post" enctype="multipart/form-data">
+ 				<div style="display:inline;">选择要上传的文件<input type="file" id="myFile" name="myFile" /></div><br/>
+ 				文件名<input type="text" id="imgName" name="imgName" /><br/>
+ 				
+ 				<input type="button" value="上传" onclick="upload()" />
+ 			</form>
+ 		</center>
+  </body>
+</html>
+
+第五步>>编写ImageUploadServlet并在web.xml中配置,lib目录导入jspsmartupload.jar组件包,编写ImageUploadServlet如下:
+package com.imooc.web.servlet;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Date;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.imooc.dao.ImageDao;
+import com.imooc.dao.impl.ImageDaoImpl;
+import com.imooc.pojo.Image;
+import com.jspsmart.upload.File;
+import com.jspsmart.upload.Files;
+import com.jspsmart.upload.Request;
+import com.jspsmart.upload.SmartUpload;
+import com.jspsmart.upload.SmartUploadException;
+
+public class ImageUploadServlet extends HttpServlet {
+
+	@Override
+	protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+			throws ServletException, IOException {
+		
+		// 创建SmartUpload对象
+		SmartUpload smartUpload = new SmartUpload();
+		// 初始化
+		smartUpload.initialize(this.getServletConfig(), req, resp);
+		//定义允许上传文件的类型
+		smartUpload.setAllowedFilesList("jpg,png,jpeg,bmp");
+		
+		try {
+			//设置不允许上传文件的类型
+			smartUpload.setDeniedFilesList("doc,txt,exe");
+			//设置上传文件最大字节数
+			smartUpload.setMaxFileSize(1024*1024*2);
+			// 上传
+			smartUpload.upload();
+			// 获得包装后的请求
+			Request request = smartUpload.getRequest();
+			// 获取请求中的参数
+			String imgName = request.getParameter("imgName");
+			System.out.println("****"+imgName+"****");
+			// 获取上传额所有文件
+			Files files = smartUpload.getFiles();
+			// 获取上传的第一个文件
+			File f = files.getFile(0);
+			// 获得表单字段名
+			// System.out.println(f.getFieldName());
+			// //获得文件扩展名
+			// System.out.println(f.getFileExt());
+			// //获得文件名
+			// System.out.println(f.getFileName());
+			// //获得文件路径名
+			// System.out.println(f.getFilePathName());
+			// //获得文件大小
+			// System.out.println(f.getSize());
+			// // 文本文件==text/plain网页文件text/html
+			// // jpg==image/jpeg gif===image/gif
+			// // bmp==image/bmp
+			// //获得子媒体类型
+			// System.out.println(f.getSubTypeMIME());
+			// //获得媒体类型
+			// System.out.println(f.getTypeMIME());
+			// //获得上传文件是否丢失
+			// System.out.println(f.isMissing());
+			if(!f.isMissing()){
+				//保存文件的相对路径
+				String path="upload/"+new Date().getTime()+"."+f.getFileExt();
+				//设置保存文件的路径和保存文件的路径的类型
+				f.saveAs("/"+path, File.SAVEAS_VIRTUAL);
+				//保存文件的绝对路径
+				String absolutePath=this.getServletContext().getRealPath("/")+"/"+path;
+				//读入文件流
+				FileInputStream fis=new FileInputStream(absolutePath);
+				//文件的字节数组bys
+				byte [] bys=new byte[fis.available()];
+				fis.read(bys);
+				//封装到Image类
+				Image image=new Image();
+				image.setName(imgName);
+				image.setData(bys);
+				image.setPath(path);
+				//使用ImageDao保存文件字节到数据库
+				ImageDao dao=new ImageDaoImpl();
+				boolean flag=dao.add(image);
+				//响应流输出flag
+				resp.getWriter().print(flag);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+}
+
+第六步>>显示保存在数据库的图片和保存在服务器的的图片
+      →新建并在webxml中配置过滤器,过滤showImage.jsp,ShowImageFilter如下:
+      package com.imooc.web.filter;
+
+      import java.io.IOException;
+      import java.util.List;
+
+      import javax.servlet.Filter;
+      import javax.servlet.FilterChain;
+      import javax.servlet.FilterConfig;
+      import javax.servlet.ServletException;
+      import javax.servlet.ServletRequest;
+      import javax.servlet.ServletResponse;
+      import javax.servlet.http.HttpServletRequest;
+      import javax.servlet.http.HttpServletResponse;
+
+      import com.imooc.dao.ImageDao;
+      import com.imooc.dao.impl.ImageDaoImpl;
+      import com.imooc.pojo.Image;
+
+      public class ShowImageFilter implements Filter {
+
+        @Override
+        public void destroy() {
+
+        }
+
+        @Override
+        public void doFilter(ServletRequest arg0, ServletResponse arg1,
+            FilterChain arg2) throws IOException, ServletException {
+          HttpServletRequest req=(HttpServletRequest)arg0;
+          HttpServletResponse resp=(HttpServletResponse)arg1;
+          ImageDao dao = new ImageDaoImpl();
+          List<Image> list = dao.findAll();
+          req.getSession().setAttribute("imageList", list);
+          arg2.doFilter(req, resp);
+        }
+
+        @Override
+        public void init(FilterConfig arg0) throws ServletException {
+
+        }
+
+      }
+      
+      →新建ShowImageServlet并在web.xml中配置,ShowImageServlet如下:
+      package com.imooc.web.servlet;
+
+      import java.io.IOException;
+
+      import javax.servlet.ServletException;
+      import javax.servlet.http.HttpServlet;
+      import javax.servlet.http.HttpServletRequest;
+      import javax.servlet.http.HttpServletResponse;
+
+      import com.imooc.dao.ImageDao;
+      import com.imooc.dao.impl.ImageDaoImpl;
+      import com.imooc.pojo.Image;
+
+      public class ShowImageServlet extends HttpServlet {
+      @Override
+      protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+          throws ServletException, IOException {
+        this.doPost(req, resp);
+      }
+      @Override
+        protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+          int id =Integer.parseInt(req.getParameter("id"));
+          ImageDao dao=new ImageDaoImpl();
+          Image image=dao.findById(id);
+          resp.getOutputStream().write(image.getData());
+          resp.getOutputStream().flush();
+          resp.getOutputStream().close();
+        }
+      }
+      →新建showImage.jsp
+      <%@ page language="java" import="java.util.*" pageEncoding="UTF-8"%>
+      <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+      <%
+      String path = request.getContextPath();
+      String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";
+      %>
+
+      <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+      <html>
+        <head>
+          <base href="<%=basePath%>">
+
+          <title>My JSP 'showImage.jsp' starting page</title>
+
+        <meta http-equiv="pragma" content="no-cache">
+        <meta http-equiv="cache-control" content="no-cache">
+        <meta http-equiv="expires" content="0">    
+        <meta http-equiv="keywords" content="keyword1,keyword2,keyword3">
+        <meta http-equiv="description" content="This is my page">
+        <!--
+        <link rel="stylesheet" type="text/css" href="styles.css">
+        -->
+
+        </head>
+
+        <body>
+          <center>
+            <table>
+              <tr>
+                <th>id</th>
+                <th>name</th>
+                <th>image</th>
+                <th>path</th>
+              </tr>
+              <c:forEach var="image" items="${imageList }">
+              <tr>
+                <td>${image.id }</td>
+                <td>${image.name }</td>
+                <td><img alt="数据库的图片" src="ShowImageServlet?id=${image.id }"></td>
+                <td><img alt="服务器的图片" src="${image.path }"/></td>
+              </tr>
+              </c:forEach>
+            </table>
+          </center>
+        </body>
+      </html>
+
